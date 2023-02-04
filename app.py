@@ -1,12 +1,23 @@
 import uvicorn
 from fastapi import FastAPI
-from waterq import Water
 import numpy as np
 import pickle
 import pandas as Pd
+from pydantic import BaseModel
 app=FastAPI()
 pickle_in=open('clsfr.pkl','rb')
 classifier=pickle.load(pickle_in)
+
+class Water(BaseModel):
+    ph:float
+    Hardness:float
+    Solids:float
+    Chloramines:float
+    Sulfate:float
+    Conductivity:float
+    Organic_carbon:float
+    Trihalomethanes:float
+    Turbidity:float
 
 @app.get('/')
 def index():
