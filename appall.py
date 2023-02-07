@@ -1,65 +1,68 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Feb  6 21:13:48 2023
-
-@author: karthik
-"""
-
 from fastapi import FastAPI
 import uvicorn
 from pydantic import BaseModel
 import pickle
-import numpy
-import pandas
+import numpy as np
+import pandas as pd
 import gunicorn
 
+df = pd.read_csv("Water_quality.csv")
+
+params = ['ph', 'Hardness', 'Solids', 'Chloramines', 'Sulfate', 'Conductivity', 'Organic_carbon', 'Trihalomethanes', 'Turbidity']
+filled = []
+
 class model(BaseModel):
-    ph: float
-    Hardness: float
-    Solids: float
-    Chloramines: float
-    Sulfate: float
-    Conductivity: float
-    Organic_carbon: float
-    Trihalomethanes: float
-    Turbidity: float
+    ph: str
+    Hardness: str
+    Solids: str
+    Chloramines: str
+    Sulfate: str
+    Conductivity: str
+    Organic_carbon: str
+    Trihalomethanes: str
+    Turbidity: str
 
-pickle_in = open('clsfrxg.pkl','rb')#xgboost
-cls1 = pickle.load(pickle_in)
+app = FastAPI()
 
-pickle_in2 = open('clsfr.pkl','rb')#random forest
-cls2  = pickle.load(pickle_in2)
-
-pickle_in3 = open('clsfrlo.pkl','rb')#logistic Regression
-cls3 = pickle.load(pickle_in3)
-
-def predic(df, num :int):
-    if(num==1):
-        return cls1.predict(df)
-    elif(num==2):
-        return cls2.predict(df)
-    else:
-        return cls3.predict(df)
-
-myApp = FastAPI()
-
-@myApp.get("/")
+@app.get("/")
 def homeFunction():
     return "Hello"
 
-@myApp.post("/water_quality")
-def getStudent(quer : model, mdl : int):
-    query = quer.dict()
-    parameters = [[query['ph'],query['Hardness'],query['Solids'],query['Chloramines'],query['Sulfate'],query['Conductivity'],query['Organic_carbon'],query['Trihalomethanes'],query['Turbidity']]]
-    arr = numpy.array(parameters, dtype=float)
-    columns = []
-    for i in query.keys():
-        columns.append(i)
-    df = pandas.DataFrame(arr, columns=columns)
-    output = predic(df, mdl)
-    if(output[0]==1):
-        return "Safe to drink"
+@app.post("/Auto_fill")
+def autoFill(parameters: model):
+    random_fill = 1
+    upper = {"ph":2, "Hardness":10, "Solids":10000, "Chloramines":2, "Sulfate":10, "Conductivity":10,"Organic_carbon":3, "Trihalomethanes":10, "Turbidity":2}
+    x = {"ph":parameters.ph, "Hardness":parameters.Hardness, "Solids":parameters.Solids, "Chloramines":parameters.Chloramines, "Sulfate": parameters.Sulfate, "Conductivity":parameters.Conductivity, "Organic_carbon":parameters.Organic_carbon, "Trihalomethanes":parameters.Organic_carbon, "Turbidity":parameters.Turbidity}
+    for i in params:
+        if(x[i]!=""):
+            filled.append(i)
+            random_fill = 0
+    if(random_fill==1):
+        random = dict()
+        dft = df.sample(1)
+        for i in dft:
+            random[i] = float(dft[i].values[0])
+        cv = {}
+        cv['output'] = random
+        return cv
     else:
-        return "Unsafe to drink"
-
-# gunicorn -w 4 -k uvicorn.workers.UvicornWorker mai:myApp
+        final_df = df
+        final_df = final_df.drop("Potability", axis=1)
+        for i in filled:
+            if(x[i]==""):
+                continue
+            value = round(float(x[i]))-1
+            if(value>10):
+                while(value%10!=0):
+                    value -=value%10
+            if(value>1000):
+                while(value%1000!=0):
+                    value -=value%1000
+            final_df = final_df[(final_df[i]>=value) & (final_df[i]<value+upper[i])]
+        random = list(final_df.values)
+        out = {}
+        for i in range(len(random)):
+            out[i] = list(random[i])
+        c = {}
+        c['output'] = out
+        return c
