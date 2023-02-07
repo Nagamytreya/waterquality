@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Feb  6 21:13:48 2023
 
-@author: karthik
-"""
 
 from fastapi import FastAPI
 import uvicorn
